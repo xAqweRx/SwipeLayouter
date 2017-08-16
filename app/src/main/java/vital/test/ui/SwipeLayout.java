@@ -16,6 +16,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
+import android.widget.ScrollView;
 
 import vital.test.R;
 
@@ -29,10 +30,13 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
     private Float prevYval;
     private Float minHeight;
     private Float maxHeight;
+
     private ImageView triggerContainer;
+    private ScrollView contentContainer;
 
 
     boolean canBeSwipeProcessed = false;
+    boolean canBeIntercepted = true;
 
     public SwipeLayout( Context context ) {
         super( context );
@@ -69,13 +73,37 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
         minHeight = 20 * getResources( ).getDisplayMetrics( ).density;
         imageId = View.generateViewId( );
 
-        RelativeLayout.LayoutParams params = new LayoutParams( ViewGroup.LayoutParams.MATCH_PARENT, minHeight.intValue() );
+        RelativeLayout.LayoutParams params = new LayoutParams( ViewGroup.LayoutParams.MATCH_PARENT, minHeight.intValue( ) );
         params.addRule( RelativeLayout.ALIGN_PARENT_BOTTOM );
 
         triggerContainer.setLayoutParams( params );
         triggerContainer.setId( imageId );
         triggerContainer.setBackgroundColor( ResourcesCompat.getColor( getResources( ), android.R.color.holo_green_light, null ) );
         triggerContainer.setOnTouchListener( this );
+
+        contentContainer = new ScrollView( this.getContext( ) ) {
+            @Override
+            public boolean onTouchEvent( MotionEvent ev ) {
+                return true;
+            }
+        };
+        contentContainer.setOnTouchListener( this );
+        contentContainer.setId( View.generateViewId( ) );
+        this.addView( contentContainer );
+
+
+        this.post( new Runnable( ) {
+            @Override
+            public void run( ) {
+                for ( int i = 0; i < SwipeLayout.this.getChildCount( ); i++ ) {
+                    View child = SwipeLayout.this.getChildAt( i );
+                    if ( child.getId( ) != triggerContainer.getId( ) && child.getId( ) != contentContainer.getId( ) ) {
+                        SwipeLayout.this.removeView( child );
+                        contentContainer.addView( child );
+                    }
+                }
+            }
+        } );
 
         this.addView( triggerContainer );
 
@@ -99,8 +127,10 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 
             case ( MotionEvent.ACTION_DOWN ):
                 Log.d( DEBUG_TAG, "Action was DOWN  view ID = " + v.getId( ) + " image ID = " + imageId );
-                if ( v.getId( ) == imageId ) {
+                if ( v.getId( ) == triggerContainer.getId( ) ) {
                     canBeSwipeProcessed = true;
+                } else if ( v.getId( ) == contentContainer.getId( ) ){
+                    canBeIntercepted = false;
                 }
 
                 if ( maxHeight == null )
@@ -110,6 +140,7 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
             case ( MotionEvent.ACTION_UP ):
                 Log.d( DEBUG_TAG, "Action was UP" );
                 canBeSwipeProcessed = false;
+                canBeIntercepted = true;
                 prevYval = null;
                 return true;
 
@@ -126,7 +157,16 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
                     prevYval = prevYval == null ? event.getY( ) : prevYval;
 
                     params.height += event.getY( ) - prevYval;
-                    params.height = ( params.height < minHeight ) ? minHeight.intValue( ) : (int) ( params.height > maxHeight ? maxHeight : params.height );
+
+                    if ( params.height < minHeight ) {
+                        params.height = minHeight.intValue( );
+                        contentContainer.setVisibility( GONE );
+                    } else if ( params.height > maxHeight ) {
+                        params.height = maxHeight.intValue( );
+                    } else {
+                        if ( contentContainer.getVisibility( ) == GONE )
+                            contentContainer.setVisibility( VISIBLE );
+                    }
 
                     prevYval = event.getY( );
 
@@ -134,18 +174,13 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
                     this.setLayoutParams( params );
 
                 }
-            case MotionEvent.ACTION_CANCEL:
-                Log.d( DEBUG_TAG, "Action was ACTION_CANCEL  view ID = " + v.getId( ) + " image ID = " + imageId );
-
-
-                return true;
         }
         return false;
     }
 
     @Override
     public boolean onInterceptTouchEvent( MotionEvent ev ) {
-        boolean res = MotionEventCompat.getActionMasked( ev ) == MotionEvent.ACTION_MOVE;
+        boolean res = MotionEventCompat.getActionMasked( ev ) == MotionEvent.ACTION_MOVE && canBeIntercepted;
         Log.d( DEBUG_TAG, "onInterceptTouchEvent result = " + res );
         return res;
     }
