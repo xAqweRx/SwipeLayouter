@@ -1,35 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:custom="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="vital.test.MainActivity"
+
     >
 
-    <vital.test.ui.SwipeLayout
+    <LinearLayout
+        android:id="@+id/check"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:orientation="vertical"
+        />
+
+    <com.vitaliisavenchuk.swipelayout.SwipeLayout
+        android:id="@+id/swipe"
         android:layout_width="match_parent"
         android:layout_height="40dp"
+        android:layout_below="@id/check"
+        android:layout_marginTop="10dp"
+        android:background="@android:color/holo_red_light"
+        custom:mode="swipe"
         >
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/first"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            >
+            android:gravity="center"
+            android:text="Just check just check just check just check just check \n first \n first
+                        \n first
+                        \n first
+            "
+            android:textColor="@android:color/holo_blue_bright"
+            />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:text="Just check
-                                just check
-                            just check
-                                just check
-                            just check
-                "
-                android:textColor="@android:color/holo_blue_bright"
-                />
-        </LinearLayout>
-    </vital.test.ui.SwipeLayout>
+        <TextView
+            android:id="@+id/second"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/first"
+            android:gravity="center"
+            android:text="Just check just check just check just check just check \n a \n n \n s"
+            android:textColor="@android:color/holo_blue_bright"
+            />
+
+        <TextView
+            android:id="@+id/third"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/second"
+            android:gravity="center"
+            android:text="Just check just check just check just check just check"
+            android:textColor="@android:color/holo_blue_bright"
+            />
+
+    </com.vitaliisavenchuk.swipelayout.SwipeLayout>
 
 </RelativeLayout>

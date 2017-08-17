@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="SwipeLayout">
+
+        <attr name="mode" format="enum">
+            <enum name="swipe" value="0"/>
+            <enum name="button" value="1"/>
+        </attr>
+
+        <attr name="swActionButtonHeight" format="dimension"/>
+        <attr name="swActionButtonSrc" format="reference"/>
+
+        <attr name="swButtonTextMore" format="string"/>
+        <attr name="swButtonTextLess" format="string"/>
+        <attr name="swButtonStyle" format="reference"/>
+    </declare-styleable>
+
+</resources>
