@@ -7,11 +7,9 @@ import android.content.res.TypedArray;
 import android.os.Build;
 import android.support.annotation.Nullable;
 import android.support.v4.content.ContextCompat;
-import android.support.v4.view.MotionEventCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v7.widget.AppCompatImageView;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.ContextThemeWrapper;
 import android.view.MotionEvent;
 import android.view.View;
@@ -25,43 +23,60 @@ import java.util.HashMap;
 
 public class SwipeLayout extends RelativeLayout implements View.OnTouchListener {
 
-	private static final String DEBUG_TAG = SwipeLayout.class.getName();
-
-
+	/**
+	 * BUTTON or SWIPE mode ( by ordinal value )
+	 */
 	private Integer mMode;
 
 	/**
-	 * variables for button mode
+	 * styling for button mode
 	 */
+	private Direction mDirection = Direction.DOWN;
 	private Integer mButtonTextMore;
 	private Integer mButtonTextLess;
 	private Integer mButtonStyle;
-	private Direction mDirection = Direction.DOWN;
 
 	/**
-	 * variables for swipe mode
+	 * styling for swipe mode
 	 */
 	private Integer mActionButtonSrc;
 	private Integer mActionButtonHeight;
 
+	private final Integer DEFAULT_SRC = R.drawable.line;
+	private final Integer DEFAULT_SIZE_DP = 20;
+
+	/**
+	 * value for calculating closest position to swipe to
+	 */
 	private Float prevYVal;
 
-
+	/**
+	 * values for checking click event. If in BUTTON mode -> this helps with events;
+	 */
 	private Float downYVal;
 	private Float downXVal;
-
-	private Float minHeight;
-	private Float maxHeight;
 	private boolean isClick;
 
+	/**
+	 * values of container min and max values
+	 */
+	private Float minHeight;
+	private Float maxHeight;
 
-
-	private View triggerContainer;
+	/**
+	 * views of action container and content container
+	 */
+	private View actionContainer;
 	private RelativeLayout contentContainer;
 
-	private ArrayList<SwipePosition> positions = new ArrayList<>();
+	/**
+	 * positions where to swipe
+	 */
+	private ArrayList<StopPosition> positions = new ArrayList<>();
 
-
+	/**
+	 * event interceptors helpers
+	 */
 	boolean canBeSwipeProcessed = false;
 	boolean canBeIntercepted = true;
 
@@ -97,8 +112,8 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 			try {
 				mMode = a.getInteger(R.styleable.SwipeLayout_mode, 0);
 				if (isSwipe()) {
-					mActionButtonSrc = a.getResourceId(R.styleable.SwipeLayout_swActionButtonSrc, R.drawable.line);
-					mActionButtonHeight = a.getDimensionPixelSize(R.styleable.SwipeLayout_swActionButtonHeight, (int) (20 * this.getContext().getResources().getDisplayMetrics().density));
+					mActionButtonSrc = a.getResourceId(R.styleable.SwipeLayout_swActionButtonSrc, DEFAULT_SRC);
+					mActionButtonHeight = a.getDimensionPixelSize(R.styleable.SwipeLayout_swActionButtonHeight, getPixelSize(DEFAULT_SIZE_DP));
 				}
 				else {
 					mButtonTextMore = a.getResourceId(R.styleable.SwipeLayout_swButtonTextMore, R.string.show_more);
@@ -110,20 +125,9 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 				a.recycle();
 			}
 		}
-		else {
-			if (isSwipe()) {
-				mActionButtonSrc = R.drawable.line;
-				mActionButtonHeight = (int) (20 * this.getContext().getResources().getDisplayMetrics().density);
-			}
-			else {
-				mButtonTextMore = R.string.show_more;
-				mButtonTextLess = R.string.show_less;
-				mButtonStyle = R.style.swButtonStyle;
-			}
-		}
 
 
-		/** scroll container */
+		/* scroll container */
 		contentContainer = new RelativeLayout(this.getContext());
 		contentContainer.setOnTouchListener(this);
 		contentContainer.setId(View.generateViewId());
@@ -137,7 +141,7 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 				int index = 0;
 				do {
 					View child = SwipeLayout.this.getChildAt(index);
-					if (child.getId() != triggerContainer.getId() && child.getId() != contentContainer.getId()) {
+					if (child.getId() != actionContainer.getId() && child.getId() != contentContainer.getId()) {
 						SwipeLayout.this.removeView(child);
 						contentContainer.addView(child);
 					}
@@ -146,53 +150,11 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 					}
 					stepsDone++;
 				} while (stepsDone < childCount);
-
 			}
 		});
 
-		/** swipe triger container */
-		LayoutParams params;
-		if (isSwipe()) {
-			triggerContainer = new AppCompatImageView(this.getContext()) {
-				@Override
-				public boolean onTouchEvent(MotionEvent event) {
-					return true;
-				}
-			};
-			((AppCompatImageView) triggerContainer).setImageDrawable(ContextCompat.getDrawable(getContext(), mActionButtonSrc));
-			params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, mActionButtonHeight);
-			params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-			minHeight = Float.valueOf(mActionButtonHeight);
-
-		}
-		else {
-			triggerContainer = new android.support.v7.widget.AppCompatTextView(new ContextThemeWrapper(this.getContext(), mButtonStyle), null, 0) {
-				@Override
-				public boolean onTouchEvent(MotionEvent event) {
-					return true;
-				}
-			};
-
-			((TextView) triggerContainer).setText(mButtonTextMore);
-			params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-			params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
-
-			int measureSpecParams = MeasureSpec.getSize(MeasureSpec.UNSPECIFIED);
-			triggerContainer.measure(measureSpecParams, measureSpecParams);
-			minHeight = (float) triggerContainer.getMeasuredHeight();
-		}
-
-		triggerContainer.setLayoutParams(params);
-		triggerContainer.setId(View.generateViewId());
-		triggerContainer.setOnTouchListener(this);
-		this.addView(triggerContainer);
-
-		params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-		params.addRule(RelativeLayout.ABOVE, triggerContainer.getId());
-		contentContainer.setLayoutParams(params);
-
+		addActionContainer();
 		this.setOnTouchListener(this);
-
 		if (this.getId() == NO_ID) {
 			this.setId(View.generateViewId());
 		}
@@ -200,14 +162,15 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 
 	@Override
 	public boolean onTouch(View v, MotionEvent event) {
-		int action = MotionEventCompat.getActionMasked(event);
+		if (isFixed())
+			return false;
+
+		int action = event.getAction();
 
 		switch (action) {
 			// finger down event
 			case (MotionEvent.ACTION_DOWN):
-				Log.d(DEBUG_TAG, "Action was DOWN  view " + v.getId());
-
-				if (v.getId() == triggerContainer.getId() && isSwipe()) {
+				if (v.getId() == actionContainer.getId() && isSwipe()) {
 					canBeSwipeProcessed = true;
 				}
 				else if (v.getId() == contentContainer.getId()) {
@@ -224,11 +187,9 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 				return true;
 			// finger up event
 			case (MotionEvent.ACTION_UP):
-				Log.d(DEBUG_TAG, "Action was UP  view " + v.getId());
-
 				if (positions.size() > 0 && (isClick && isButton() || isSwipe())) {
 					float value = (v.getId() == this.getId() ? 0 : v.getTop()) + event.getY();
-					SwipePosition closestPosition = calculateClosest(value);
+					StopPosition closestPosition = calculateClosest(value);
 					animate(this.getHeight(), closestPosition.getHeight(value));
 				}
 
@@ -240,7 +201,6 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 
 			// when swiping is going on
 			case (MotionEvent.ACTION_MOVE):
-
 				if (Math.abs(downYVal - event.getY()) > 50 || Math.abs(downXVal - event.getX()) > 50) {
 					isClick = false;
 				}
@@ -275,43 +235,85 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 		return false;
 	}
 
-
 	/**
 	 * intercepting events of swiping, if down was on Image
 	 */
 	@Override
 	public boolean onInterceptTouchEvent(MotionEvent ev) {
-		boolean res = (MotionEventCompat.getActionMasked(ev) == MotionEvent.ACTION_MOVE) && canBeIntercepted;
-		return res;
-	}
-
-	@Override
-	public boolean onTouchEvent(MotionEvent event) {
-		Log.d(DEBUG_TAG, "Event " + event.getAction());
-		return super.onTouchEvent(event);
+		boolean res = (ev.getAction() == MotionEvent.ACTION_MOVE) && canBeIntercepted;
+		return !isButton() && res;
 	}
 
 	/*-------------------------*/
 	/*     PUBLIC METHODS      */
 	/*-------------------------*/
-	public void addPosition(SwipePosition position) {
+
+	/**
+	 * Data method, for adding "stop" position
+	 * @param position {@link StopPosition} wher layout will
+	 */
+	public void addPosition(StopPosition position) {
 		positions.add(position);
 	}
 
-	public void addPositions(ArrayList<SwipePosition> position) {
-		positions = position;
+	public void addPositions(ArrayList<StopPosition> position) {
+		positions.addAll(position);
 	}
 
 	public void clearPositions() {
 		positions.clear();
 	}
 
-	public boolean isSwipe(){
-		return mMode == SwipeLayoutMode.SWIPE.ordinal();
+	public LayoutMode getMode() {
+		return LayoutMode.values()[mMode];
 	}
 
-	public boolean isButton(){
-		return mMode == SwipeLayoutMode.BUTTON.ordinal();
+	public void setMode(LayoutMode mMode) {
+		setMode(mMode, null);
+	}
+
+	public void setMode(LayoutMode mMode, Direction direction) {
+		this.mMode = mMode.ordinal();
+
+		if (direction != null)
+			this.mDirection = direction;
+
+		removeActionContainer();
+		addActionContainer();
+	}
+
+	public View getActionContainer() {
+		return actionContainer;
+	}
+
+	public RelativeLayout getContentContainer() {
+		return contentContainer;
+	}
+
+	public Direction getDirection() {
+		return mDirection;
+	}
+
+	public void setDirection(Direction mDirection) {
+		this.mDirection = mDirection;
+		removeActionContainer();
+		addActionContainer();
+	}
+
+	/*-------------------------*/
+	/*     IS METHODS          */
+	/*-------------------------*/
+
+	public boolean isSwipe() {
+		return mMode == LayoutMode.SWIPE.ordinal();
+	}
+
+	public boolean isButton() {
+		return mMode == LayoutMode.BUTTON.ordinal();
+	}
+
+	public boolean isFixed() {
+		return mMode == LayoutMode.FIXED.ordinal();
 	}
 
 	/*-------------------------*/
@@ -341,9 +343,9 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 		animation.start();
 	}
 
-	private SwipePosition calculateClosest(float YVal) {
-		SwipePosition closestPosition = null;
-		for (SwipePosition position : positions) {
+	private StopPosition calculateClosest(float YVal) {
+		StopPosition closestPosition = null;
+		for (StopPosition position : positions) {
 			if (closestPosition == null) {
 				closestPosition = position;
 				closestPosition.calculateDistance(this, YVal, maxHeight, minHeight);
@@ -356,23 +358,23 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 		}
 
 		if (isButton()) {
-			SwipePosition nextPosition = getNextDownPosition(closestPosition);
-			SwipePosition afterNextPosition = nextPosition == null ? null : getNextDownPosition(nextPosition);
+			StopPosition nextPosition = getNextDownPosition(closestPosition);
+			StopPosition afterNextPosition = nextPosition == null ? null : getNextDownPosition(nextPosition);
 
-			SwipePosition prevPosition = getNextUpPosition(closestPosition);
-			SwipePosition afterPrevPosition = prevPosition == null ? null : getNextUpPosition(prevPosition);
+			StopPosition prevPosition = getNextUpPosition(closestPosition);
+			StopPosition afterPrevPosition = prevPosition == null ? null : getNextUpPosition(prevPosition);
 
 			if (mDirection == Direction.DOWN) {
 				closestPosition = nextPosition;
 				if (afterNextPosition == null) {
-					((TextView) triggerContainer).setText(mButtonTextLess);
+					((TextView) actionContainer).setText(mButtonTextLess);
 					mDirection = Direction.UP;
 				}
 			}
 			else {
 				closestPosition = prevPosition;
 				if (afterPrevPosition == null) {
-					((TextView) triggerContainer).setText(mButtonTextMore);
+					((TextView) actionContainer).setText(mButtonTextMore);
 					mDirection = Direction.DOWN;
 				}
 			}
@@ -392,10 +394,10 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 		}
 	}
 
-	private SwipePosition getNextDownPosition(SwipePosition currentPosition) {
-		SwipePosition nextPosition = null;
+	private StopPosition getNextDownPosition(StopPosition currentPosition) {
+		StopPosition nextPosition = null;
 		int nextDistanceVal = Integer.MAX_VALUE;
-		for (SwipePosition position : this.positions) {
+		for (StopPosition position : this.positions) {
 			int distance = position.getDistanceFromTop() - currentPosition.getDistanceFromTop();
 			if (distance <= 0)
 				continue;
@@ -414,10 +416,10 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 		return nextPosition;
 	}
 
-	private SwipePosition getNextUpPosition(SwipePosition currentPosition) {
-		SwipePosition prevPosition = null;
+	private StopPosition getNextUpPosition(StopPosition currentPosition) {
+		StopPosition prevPosition = null;
 		int prevDistanceVal = -1 * Integer.MAX_VALUE;
-		for (SwipePosition position : this.positions) {
+		for (StopPosition position : this.positions) {
 			int distance = position.getDistanceFromTop() - currentPosition.getDistanceFromTop();
 			if (distance >= 0)
 				continue;
@@ -436,24 +438,100 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 		return prevPosition;
 	}
 
-	private enum SwipeLayoutMode {
+	private void removeActionContainer() {
+		this.removeView(actionContainer);
+
+		RelativeLayout.LayoutParams layoutParams = (LayoutParams) this.contentContainer.getLayoutParams();
+		layoutParams.removeRule(ABOVE);
+
+		actionContainer = null;
+	}
+
+	private void addActionContainer() {
+		LayoutParams params;
+		initDefaultStylingIfEmpty();
+
+		if (!isFixed()) {
+			if (isSwipe()) {
+				actionContainer = new AppCompatImageView(this.getContext()) {
+					@Override
+					public boolean onTouchEvent(MotionEvent event) {
+						return true;
+					}
+				};
+				((AppCompatImageView) actionContainer).setImageDrawable(ContextCompat.getDrawable(getContext(), mActionButtonSrc));
+				params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, mActionButtonHeight);
+				params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+				minHeight = Float.valueOf(mActionButtonHeight);
+
+			}
+			else {
+				actionContainer = new android.support.v7.widget.AppCompatTextView(new ContextThemeWrapper(this.getContext(), mButtonStyle), null, 0) {
+					@Override
+					public boolean onTouchEvent(MotionEvent event) {
+						return true;
+					}
+				};
+
+
+				((TextView) actionContainer).setText(mDirection == Direction.DOWN ? mButtonTextMore : mButtonTextLess);
+				params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+				params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+
+				int measureSpecParams = MeasureSpec.getSize(MeasureSpec.UNSPECIFIED);
+				actionContainer.measure(measureSpecParams, measureSpecParams);
+				minHeight = (float) actionContainer.getMeasuredHeight();
+			}
+
+			actionContainer.setLayoutParams(params);
+			actionContainer.setId(View.generateViewId());
+			actionContainer.setOnTouchListener(this);
+			this.addView(actionContainer);
+
+			params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+			params.addRule(RelativeLayout.ABOVE, actionContainer.getId());
+			contentContainer.setLayoutParams(params);
+		}
+	}
+
+	private int getPixelSize(int dp) {
+		return (int) (dp * this.getContext().getResources().getDisplayMetrics().density);
+	}
+
+	private void initDefaultStylingIfEmpty() {
+		if (isSwipe()) {
+			mActionButtonSrc = mActionButtonSrc == null ? R.drawable.line : mActionButtonSrc;
+			mActionButtonHeight = mActionButtonHeight == null ? getPixelSize(DEFAULT_SIZE_DP) : mActionButtonHeight;
+		}
+		else {
+			mButtonTextMore = mButtonTextMore == null ? R.string.show_more : mButtonTextMore;
+			mButtonTextLess = mButtonTextLess == null ? R.string.show_less : mButtonTextLess;
+			mButtonStyle = mButtonStyle == null ? R.style.swButtonStyle : mButtonStyle;
+		}
+	}
+
+	/*-------------------------*/
+	/*     INNER CLASSES       */
+	/*-------------------------*/
+	public enum LayoutMode {
 		SWIPE,
-		BUTTON;
+		BUTTON,
+		FIXED
 	}
 
 	public enum SwipeToPosition {
-		TO_BOTOM, // to bottom of parent
+		TO_BOTTOM, // to bottom of parent
 		TO_POSITION, // px from top
 		TO_END_OF, // id of layout
-		TO_TOP; // collapse view
+		TO_TOP // collapse view
 	}
 
 	private enum Direction {
 		UP,
-		DOWN;
+		DOWN
 	}
 
-	public static class SwipePosition {
+	public static class StopPosition {
 
 		final SwipeToPosition swipeToPosition;
 		final Integer id;
@@ -464,29 +542,29 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 		private HashMap<Float, Float> cacheDistance = new HashMap<>();
 		private HashMap<Float, Float> cacheHeight = new HashMap<>();
 
-		public SwipePosition(SwipeToPosition swipeToPosition, Integer value) {
+		public StopPosition(SwipeToPosition swipeToPosition, Integer value) {
 			this.swipeToPosition = swipeToPosition;
 			if (this.swipeToPosition == SwipeToPosition.TO_POSITION) {
 				this.height = value;
-				this.id = null;
+				this.id = View.NO_ID;
 			}
 			else if (this.swipeToPosition == SwipeToPosition.TO_END_OF) {
 				this.id = value;
-				this.height = null;
+				this.height = 0;
 			}
 			else {
 				throw new RuntimeException("Please use correct Constructor for this type of swipe");
 			}
 		}
 
-		public SwipePosition(SwipeToPosition swipeToPosition) {
+		public StopPosition(SwipeToPosition swipeToPosition) {
 			this.swipeToPosition = swipeToPosition;
 
-			if (this.swipeToPosition != SwipeToPosition.TO_TOP && this.swipeToPosition != SwipeToPosition.TO_BOTOM)
+			if (this.swipeToPosition != SwipeToPosition.TO_TOP && this.swipeToPosition != SwipeToPosition.TO_BOTTOM)
 				throw new RuntimeException("Please use correct Constructor for this type of swipe");
 
-			this.id = null;
-			this.height = null;
+			this.id = View.NO_ID;
+			this.height = 0;
 		}
 
 		float calculateDistance(View globalView, float toYValue, float maxHeight, float minHeight) {
@@ -496,7 +574,7 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 			Float distance = 0f;
 
 			switch (swipeToPosition) {
-				case TO_BOTOM:
+				case TO_BOTTOM:
 					distance = maxHeight - toYValue;
 					cacheHeight.put(toYValue, maxHeight);
 					distanceFromTop = (int) (maxHeight);
@@ -538,7 +616,7 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 			return cacheHeight.get(toYValue);
 		}
 
-		public Integer getDistanceFromTop() {
+		Integer getDistanceFromTop() {
 			return distanceFromTop;
 		}
 	}

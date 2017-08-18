@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">Test</string>
+    <string name="app_name">Swipe Layout Example</string>
+    <string name="next_style">Next style</string>
+
 </resources>

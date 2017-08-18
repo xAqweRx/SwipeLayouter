@@ -14,7 +14,16 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:orientation="vertical"
-        />
+        >
+
+        <Button
+            android:id="@+id/next_style"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:text="@string/next_style"
+            />
+    </LinearLayout>
+
 
     <com.vitaliisavenchuk.swipelayout.SwipeLayout
         android:id="@+id/swipe"

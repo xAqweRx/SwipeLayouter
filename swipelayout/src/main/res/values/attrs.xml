@@ -3,8 +3,9 @@
     <declare-styleable name="SwipeLayout">
 
         <attr name="mode" format="enum">
-            <enum name="swipe" value="0"/>
-            <enum name="button" value="1"/>
+            <enum name="swipe" value="0"/> <!-- added swipe action button -->
+            <enum name="button" value="1"/> <!-- added more/less button -->
+            <enum name="fixed" value="2"/> <!-- no action is done -->
         </attr>
 
         <attr name="swActionButtonHeight" format="dimension"/>
