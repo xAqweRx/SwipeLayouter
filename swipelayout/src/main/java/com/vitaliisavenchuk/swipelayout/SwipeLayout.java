@@ -473,14 +473,26 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 					}
 				};
 
-
-				((TextView) actionContainer).setText(mDirection == Direction.DOWN ? mButtonTextMore : mButtonTextLess);
 				params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
 				params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
 
 				int measureSpecParams = MeasureSpec.getSize(MeasureSpec.UNSPECIFIED);
 				actionContainer.measure(measureSpecParams, measureSpecParams);
 				minHeight = (float) actionContainer.getMeasuredHeight();
+
+				this.post(new Runnable() {
+					@Override
+					public void run() {
+						StopPosition position = calculateClosest(SwipeLayout.this.getMeasuredHeight());
+						if(getNextDownPosition(position) == null){
+							SwipeLayout.this.mDirection = Direction.UP;
+						} else {
+							SwipeLayout.this.mDirection = Direction.DOWN;
+						}
+
+						((TextView) actionContainer).setText(SwipeLayout.this.mDirection == Direction.DOWN ? mButtonTextMore : mButtonTextLess);
+					}
+				});
 			}
 
 			actionContainer.setLayoutParams(params);
