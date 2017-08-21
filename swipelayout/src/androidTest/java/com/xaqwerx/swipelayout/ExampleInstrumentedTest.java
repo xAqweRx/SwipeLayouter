@@ -1,4 +1,4 @@
-package com.vitaliisavenchuk.swipelayout;
+package com.xaqwerx.swipelayout;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

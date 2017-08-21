@@ -1,4 +1,4 @@
-package com.vitaliisavenchuk.swipelayout;
+package com.xaqwerx.swipelayout;
 
 import android.animation.ValueAnimator;
 import android.annotation.TargetApi;
@@ -484,9 +484,10 @@ public class SwipeLayout extends RelativeLayout implements View.OnTouchListener 
 					@Override
 					public void run() {
 						StopPosition position = calculateClosest(SwipeLayout.this.getMeasuredHeight());
-						if(getNextDownPosition(position) == null){
+						if (getNextDownPosition(position) == null && SwipeLayout.this.mDirection == Direction.DOWN) {
 							SwipeLayout.this.mDirection = Direction.UP;
-						} else {
+						}
+						else if (getNextUpPosition(position) == null && SwipeLayout.this.mDirection == Direction.UP) {
 							SwipeLayout.this.mDirection = Direction.DOWN;
 						}
 

@@ -1,4 +1,4 @@
-package com.vitaliisavenchuk.swipelayout;
+package com.xaqwerx.swipelayout;
 
 import org.junit.Test;
 
